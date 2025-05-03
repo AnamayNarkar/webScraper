@@ -16,7 +16,6 @@ export async function createStealthContext(browser: Browser): Promise<BrowserCon
     'User-Agent': getRandomUserAgent(),
     'Accept-Language': 'en-US,en;q=0.9'
   });
-  // await context.setViewportSize(viewport);
 
   return context;
 }
