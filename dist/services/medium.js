@@ -1,42 +1,8 @@
 import { webkit } from 'playwright';
-function getRandomUserAgent() {
-    const userAgents = [
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15',
-        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:102.0) Gecko/20100101 Firefox/102.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
-    ];
-    return userAgents[Math.floor(Math.random() * userAgents.length)];
-}
-function getRandomViewport() {
-    const viewports = [
-        { width: 1280, height: 800 },
-        { width: 1366, height: 768 },
-        { width: 1440, height: 900 },
-        { width: 1600, height: 900 },
-        { width: 1920, height: 1080 }
-    ];
-    return viewports[Math.floor(Math.random() * viewports.length)];
-}
-async function createStealthContext(browser) {
-    const context = await browser.newContext();
-    const viewport = getRandomViewport();
-    await context.addInitScript(() => {
-        Object.defineProperty(navigator, 'webdriver', { get: () => false });
-        Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-        Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
-    });
-    await context.addCookies([]);
-    await context.setExtraHTTPHeaders({
-        'User-Agent': getRandomUserAgent(),
-        'Accept-Language': 'en-US,en;q=0.9'
-    });
-    // await context.setViewportSize(viewport);
-    return context;
-}
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-async function getArticleClaps(browser, articleUrl) {
+import { createStealthContext } from '../utils/browser.js';
+import { delay } from '../utils/common.js';
+import { getLinkedInUrl } from './linkedin.js';
+export async function getArticleClaps(browser, articleUrl) {
     await delay(Math.random() * 3000 + 2000);
     const context = await createStealthContext(browser);
     const page = await context.newPage();
@@ -50,29 +16,7 @@ async function getArticleClaps(browser, articleUrl) {
         await page.close();
     }
 }
-async function getLinkedInUrl(browser, profileUrl) {
-    await delay(Math.random() * 3000 + 2000);
-    const context = await createStealthContext(browser);
-    const page = await context.newPage();
-    try {
-        await delay(Math.random() * 3000 + 2000);
-        const nameOfAuthor = profileUrl.split('@')[1]?.split('/')[0] || '';
-        if (!nameOfAuthor)
-            return '';
-        const searchUrl = `https://www.duckduckgo.com/search?q=${encodeURIComponent(`${nameOfAuthor} AI artificial intelligence software engineering linkedin profile site:linkedin.com/in/`)}`;
-        await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.click('button:has-text("Accept all")').catch(() => { });
-        const linkedinUrl = await page.$eval('a[href*="linkedin.com/in/"]', (el) => new URL(el.href).searchParams.get('url') || el.href).catch(() => '');
-        return linkedinUrl
-            .replace(/^(https?:\/\/)nl\./, '$1www.')
-            .split('?')[0]
-            .replace('/pub', '/in');
-    }
-    finally {
-        await page.close();
-    }
-}
-async function scrapeMediumAuthors(maxAuthors = 50) {
+export async function scrapeMediumAuthors(maxAuthors = 50) {
     const browser = await webkit.launch({ headless: true });
     const CONCURRENCY = 3;
     try {
@@ -140,12 +84,3 @@ async function scrapeMediumAuthors(maxAuthors = 50) {
         await browser.close();
     }
 }
-(async () => {
-    try {
-        const authors = await scrapeMediumAuthors(3);
-        console.log('Final results:', JSON.stringify(authors));
-    }
-    catch (error) {
-        console.error('Runtime error:', error);
-    }
-})();

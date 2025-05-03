@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Vikas Negi",
+    "profileUrl": "https://medium.com/@vikas.negi10",
+    "articleTitle": "Unleashing LLMs with Team Red: Your Guide to AMD-Powered Local AI",
+    "articleUrl": "https://medium.com/data-science-collective/unleashing-llms-with-team-red-your-guide-to-amd-powered-local-ai-3be6ea745f0f",
+    "articleClaps": "89",
+    "linkedInUrl": "https://www.linkedin.com/in/negivikas"
+  },
+  {
+    "name": "Jenny Ouyang",
+    "profileUrl": "https://medium.com/@jenny-ouyang",
+    "articleTitle": "From Color Blindness Grit to a Simple Tool for Change",
+    "articleUrl": "https://medium.com/code-like-a-girl/from-color-blindness-grit-to-a-simple-tool-for-change-486591b3ab7a",
+    "articleClaps": "174",
+    "linkedInUrl": "https://www.linkedin.com/in/jenny-ouyang"
+  },
+  {
+    "name": "Trung Thanh Tran",
+    "profileUrl": "https://medium.com/@trungtranthanh",
+    "articleTitle": "The Art of LLM Inference: Fast, Fit, and Free",
+    "articleUrl": "https://medium.com/gopenai/the-art-of-llm-inference-fast-fit-and-free-c9faf1190d78",
+    "articleClaps": "155",
+    "linkedInUrl": "https://www.linkedin.com/in/trungtran1234"
+  }
+]
