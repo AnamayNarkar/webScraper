@@ -1,6 +1,4 @@
-import { Browser } from 'playwright';
-import { chromium } from "playwright-extra";
-import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { Browser, BrowserContext, ElementHandle, Page,firefox, webkit } from 'playwright';
 
 interface AuthorDetails {
   name: string;
@@ -11,137 +9,175 @@ interface AuthorDetails {
   articleUrl: string;
 }
 
-// Utility delay function that doesn't depend on page context
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+function getRandomUserAgent(): string {
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.90 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:102.0) Gecko/20100101 Firefox/102.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+  ];
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
+}
+
+function getRandomViewport(): { width: number; height: number } {
+  const viewports = [
+    { width: 1280, height: 800 },
+    { width: 1366, height: 768 },
+    { width: 1440, height: 900 },
+    { width: 1600, height: 900 },
+    { width: 1920, height: 1080 }
+  ];
+  return viewports[Math.floor(Math.random() * viewports.length)];
+}
+
+async function createStealthContext(browser: Browser): Promise<BrowserContext> {
+  const context = await browser.newContext();
+  const viewport = getRandomViewport();
+  
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+  });
+
+  await context.addCookies([]);
+  await context.setExtraHTTPHeaders({
+    'User-Agent': getRandomUserAgent(),
+    'Accept-Language': 'en-US,en;q=0.9'
+  });
+  // await context.setViewportSize(viewport);
+
+  return context;
+}
+
+const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 async function getArticleClaps(browser: Browser, articleUrl: string): Promise<string> {
-  const page = await browser.newPage();
+
+  await delay(Math.random() * 3000 + 2000);
+
+  const context = await createStealthContext(browser);
+  const page = await context.newPage();
   try {
     await page.goto(articleUrl, { waitUntil: 'networkidle', timeout: 60000 });
-    await page.waitForSelector('div.pw-multi-vote-count', { timeout: 30000 });
-    
-    // Use utility delay instead of page.waitForTimeout
-    await delay(3000);
-    
+    await page.waitForSelector('div.pw-multi-vote-count button', { timeout: 30000 });
+    await delay(1000);
     return await page.$eval(
       'div.pw-multi-vote-count button',
-      el => el.textContent?.trim() || '0'
+      (el: HTMLElement) => el.textContent?.trim() || '0'
     );
-  } catch (err) {
-    console.error(`Failed to get claps for ${articleUrl}:`, err);
-    return '0';
   } finally {
     await page.close();
   }
 }
 
 async function getLinkedInUrl(browser: Browser, profileUrl: string): Promise<string> {
-  const page = await browser.newPage();
-  try {
-    // Add random delay before starting
-    await delay(Math.random() * 3000 + 2000);
 
-    // Set realistic headers
-    await page.setExtraHTTPHeaders({
-      'Accept-Language': 'en-US,en;q=0.9',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    });
+  await delay(Math.random() * 3000 + 2000);
+
+  const context = await createStealthContext(browser);
+  const page = await context.newPage();
+  try {
+    await delay(Math.random() * 3000 + 2000);
 
     const nameOfAuthor = profileUrl.split('@')[1]?.split('/')[0] || '';
     if (!nameOfAuthor) return '';
 
     const searchUrl = `https://www.duckduckgo.com/search?q=${encodeURIComponent(
-      `${nameOfAuthor} artificial intelligence AI linkedin profile site:linkedin.com/in/`
+      `${nameOfAuthor} AI artificial intelligence software engineering linkedin profile site:linkedin.com/in/`
     )}`;
 
     await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    
-    // Handle consent dialog
     await page.click('button:has-text("Accept all")').catch(() => {});
 
-    // Get first LinkedIn result
     const linkedinUrl = await page.$eval(
       'a[href*="linkedin.com/in/"]',
-      (el: HTMLAnchorElement) => {
-        const url = new URL(el.href);
-        return url.searchParams.get('url') || url.href;
-      }
+      (el: HTMLAnchorElement) => new URL(el.href).searchParams.get('url') || el.href
     ).catch(() => '');
 
-    // Normalize URL format
     return linkedinUrl
       .replace(/^(https?:\/\/)nl\./, '$1www.')
       .split('?')[0]
       .replace('/pub', '/in');
-  } catch (err) {
-    console.error(`LinkedIn lookup failed for ${profileUrl}:`, err);
-    return '';
   } finally {
     await page.close();
-    // Add random delay between requests
-    await delay(Math.random() * 5000 + 2000);
   }
 }
 
 async function scrapeMediumAuthors(maxAuthors = 50): Promise<AuthorDetails[]> {
-  chromium.use(StealthPlugin());
-  const browser = await chromium.launch({ headless: false });
+  const browser = await webkit.launch({ headless: true });
+  const CONCURRENCY = 3;
 
   try {
-    const page = await browser.newPage();
+    const context = await createStealthContext(browser);
+    const page = await context.newPage();
     const authors: AuthorDetails[] = [];
     let scrolls = 0;
 
-    await page.goto(
-      'https://medium.com/tag/artificial-intelligence/recommended',
-      { waitUntil: 'networkidle', timeout: 60000 }
-    );
-    await page.waitForSelector('article', { timeout: 30000 });
+    await page.goto('https://medium.com/tag/artificial-intelligence/recommended', {
+      waitUntil: 'networkidle',
+      timeout: 60000
+    });
 
     while (authors.length < maxAuthors && scrolls < 15) {
-      const newEntries = await page.$$eval('article', articles =>
-        articles.map(article => {
+      const newEntries = await page.$$eval('article', (articles: Element[]) => 
+        articles.map((article: Element) => {
           const authorLink = article.querySelector('a[href^="/@"]');
-          const name = authorLink?.textContent?.trim() || '';
-          const rawProfile = authorLink?.getAttribute('href')?.split('?')[0] || '';
-          const profileUrl = rawProfile.startsWith('http')
-            ? rawProfile
-            : `https://medium.com${rawProfile}`;
-
           const titleEl = article.querySelector('h2, h3');
-          const articleTitle = titleEl?.textContent?.trim() || '';
-          const rawArticleUrl = titleEl?.parentElement?.getAttribute('href')?.split('?')[0] || '';
-          const articleUrl = rawArticleUrl.startsWith('http')
-            ? rawArticleUrl
-            : `https://medium.com${rawArticleUrl}`;
-
-          return { name, profileUrl, articleTitle, articleUrl };
+          return {
+            name: authorLink?.textContent?.trim() || '',
+            profileUrl: authorLink?.getAttribute('href')?.split('?')[0] || '',
+            articleTitle: titleEl?.textContent?.trim() || '',
+            articleUrl: titleEl?.parentElement?.getAttribute('href')?.split('?')[0] || ''
+          };
         })
       );
 
-      for (const entry of newEntries) {
-        if (authors.length >= maxAuthors) break;
-        if (!entry.name || !entry.profileUrl || !entry.articleTitle) continue;
+      const validEntries = newEntries
+        .map(entry => ({
+          ...entry,
+          profileUrl: entry.profileUrl.startsWith('http') 
+            ? entry.profileUrl 
+            : `https://medium.com${entry.profileUrl}`,
+          articleUrl: entry.articleUrl.startsWith('http')
+            ? entry.articleUrl
+            : `https://medium.com${entry.articleUrl}`
+        }))
+        .filter(entry => 
+          entry.name && 
+          entry.profileUrl && 
+          entry.articleTitle &&
+          !authors.some(a => a.articleUrl === entry.articleUrl)
+        )
+        .slice(0, maxAuthors - authors.length);
 
-        try {
-          const [claps, linkedInUrl] = await Promise.all([
-            getArticleClaps(browser, entry.articleUrl),
-            getLinkedInUrl(browser, entry.profileUrl)
-          ]);
+      const results = await Promise.allSettled(
+        validEntries.map(async (entry: typeof validEntries[number]) => {
+          try {
+            const [linkedInUrl,claps] = await Promise.all([
+              getLinkedInUrl(browser, entry.profileUrl),
+              getArticleClaps(browser, entry.articleUrl)
+            ]);
+            return { ...entry, articleClaps: claps, linkedInUrl };
+          } catch (error) {
+            console.error(`Error processing ${entry.name}:`, error);
+            return null;
+          }
+        })
+      );
 
-          authors.push({
-            ...entry,
-            articleClaps: claps,
-            linkedInUrl
-          });
+      const successfulEntries = results
+        .filter((result): result is PromiseFulfilledResult<AuthorDetails> => 
+          result.status === 'fulfilled' && result.value !== null
+        )
+        .map(result => result.value);
 
-          console.log(`Added author ${authors.length}/${maxAuthors}: ${entry.name}`);
-        } catch (err) {
-          console.error(`Failed to process entry: ${entry.name}`, err);
-        }
-      }
+      authors.push(...successfulEntries);
+      console.log(`Processed ${successfulEntries.length} entries, total: ${authors.length}`);
 
-      // Scroll handling
+      if (authors.length >= maxAuthors) break;
+
       await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
       await delay(3000);
       scrolls++;
@@ -153,12 +189,11 @@ async function scrapeMediumAuthors(maxAuthors = 50): Promise<AuthorDetails[]> {
   }
 }
 
-(async () => {
+(async (): Promise<void> => {
   try {
-    const authors = await scrapeMediumAuthors(1);
-    console.log('Scraping complete!');
-    console.log('Results:', JSON.stringify(authors, null, 2));
+    const authors = await scrapeMediumAuthors(3);
+    console.log('Final results:', JSON.stringify(authors));
   } catch (error) {
-    console.error('Main execution error:', error);
+    console.error('Runtime error:', error);
   }
 })();
