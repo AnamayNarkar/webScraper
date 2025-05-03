@@ -17,7 +17,7 @@ export async function getArticleClaps(browser, articleUrl) {
     }
 }
 export async function scrapeMediumAuthors(maxAuthors = 50) {
-    const browser = await webkit.launch({ headless: true });
+    const browser = await webkit.launch({ headless: false });
     const CONCURRENCY = 3;
     try {
         const context = await createStealthContext(browser);

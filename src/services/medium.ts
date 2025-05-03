@@ -23,7 +23,7 @@ export async function getArticleClaps(browser: Browser, articleUrl: string): Pro
 }
 
 export async function scrapeMediumAuthors(maxAuthors = 50): Promise<AuthorDetails[]> {
-  const browser = await webkit.launch({ headless: true });
+  const browser = await webkit.launch({ headless: false });
   const CONCURRENCY = 3;
 
   try {
