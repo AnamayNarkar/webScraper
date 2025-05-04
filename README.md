@@ -17,14 +17,14 @@ This tool helps you:
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js
 - npm or yarn
 
 ## Installation
 
 1. Clone this repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/AnamayNarkar/webScraper.git
    cd mediumlinkedin
    ```
 
@@ -69,7 +69,6 @@ The application generates an `authors.json` file with this structure:
     "linkedInUrl": "https://linkedin.com/in/author",
     "articleUrl": "https://medium.com/article-path"
   },
-  ...
 ]
 ```
 
